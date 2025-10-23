@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gallery • Temple Fellowship Network</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="css/patriotic.css" />
+  <script defer>
+    const KEY_MEDIA = 'tfn_media';
+
+    function loadMedia(){
+      try{ return JSON.parse(localStorage.getItem(KEY_MEDIA) || '[]'); }
+      catch{ return []; }
+    }
+    function saveMedia(list){
+      localStorage.setItem(KEY_MEDIA, JSON.stringify(list));
+    }
+    function render(){
+      const wrap = document.getElementById('media-list');
+      const list = loadMedia();
+      wrap.innerHTML = '';
+      if(!list.length){
+        wrap.innerHTML = '<div class="card center">No media yet. Add your first photo or video below.</div>';
+        return;
+      }
+      list.slice().reverse().forEach(m=>{
+        const card = document.createElement('div');
+        card.className = 'card media-card';
+        const isVideo = m.type === 'video';
+        card.innerHTML = `
+          ${isVideo
+            ? `<video controls src="${m.url}" title="${m.caption || ''}"></video>`
+            : `<img src="${m.url}" alt="${m.caption || 'Trip media'}" />`
+          }
+          <p><strong>${m.caption || ''}</strong></p>
+          <p class="small">${m.date || ''}</p>
+        `;
+        wrap.appendChild(card);
+      });
+    }
+    document.addEventListener('DOMContentLoaded', ()=>{
+      render();
+      const form = document.getElementById('media-form');
+      form.addEventListener('submit', (e)=>{
+        e.preventDefault();
+        const type = document.getElementById('type').value;
+        const url  = document.getElementById('url').value.trim();
+        const caption = document.getElementById('caption').value.trim();
+        const date = document.getElementById('date').value;
+        if(!url) return;
+        const list = loadMedia();
+        list.push({id:'m_'+Date.now(), type, url, caption, date});
+        saveMedia(list);
+        form.reset();
+        render();
+        window.scrollTo({top:0, behavior:'smooth'});
+      });
+    });
+  </script>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="temples.html">Temples</a>
+    <a href="trips.html">Trips</a>
+    <a href="join-trip.html">Start a Trip</a>
+    <a href="photos.html" class="active">Gallery</a>
+  </nav>
+
+  <div class="container">
+    <header class="card center">
+      <h1>Trip Gallery</h1>
+      <p>Add image or video URLs (YouTube, MP4, or image links). Saved locally in your browser.</p>
+    </header>
+
+    <section id="media-list" class="grid" aria-live="polite"></section>
+
+    <section class="card">
+      <h2>Add Media</h2>
+      <form id="media-form">
+        <label>Type</label>
+        <select id="type" class="input">
+          <option value="image">Image</option>
+          <option value="video">Video</option>
+        </select>
+
+        <label>URL</label>
+        <input id="url" class="input" placeholder="https://...jpg / .png / .mp4 / YouTube link" required />
+
+        <label>Caption</label>
+        <input id="caption" class="input" placeholder="e.g., Sunrise at Bryce Canyon" />
+
+        <label>Date</label>
+        <input id="date" class="input" type="date" />
+
+        <button class="btn" type="submit">Add to Gallery</button>
+      </form>
+      <p class="small">Tip: For YouTube, paste the direct video URL. For images, paste a direct image link (ends in .jpg/.png).</p>
+    </section>
+
+    <footer class="footer">
+      <p>Created by LovingSmiles • My Life Compass Solutions</p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Temples • Temple Fellowship Network</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="css/patriotic.css" />
+  <script defer src="js/temple-data.js"></script>
+  <script defer>
+    document.addEventListener('DOMContentLoaded', () => {
+      const listEl = document.getElementById('temple-list');
+      const search = document.getElementById('search');
+      const region = document.getElementById('region');
+
+      function render(items){
+        listEl.innerHTML = '';
+        items.forEach(t => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <h3>${t.name}</h3>
+            <p class="small">${t.city}, ${t.country} • Region: ${t.region}</p>
+          `;
+          listEl.appendChild(card);
+        });
+      }
+
+      let filtered = TEMPLE_DATA.slice();
+      render(filtered);
+
+      function applyFilter(){
+        const q = search.value.trim().toLowerCase();
+        const r = region.value;
+        filtered = TEMPLE_DATA.filter(t => {
+          const matchQ = !q || (t.name.toLowerCase().includes(q) || t.city.toLowerCase().includes(q) || t.country.toLowerCase().includes(q));
+          const matchR = !r || t.region === r;
+          return matchQ && matchR;
+        });
+        render(filtered);
+      }
+
+      search.addEventListener('input', applyFilter);
+      region.addEventListener('change', applyFilter);
+    });
+  </script>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="temples.html" class="active">Temples</a>
+    <a href="trips.html">Trips</a>
+    <a href="join-trip.html">Start a Trip</a>
+    <a href="photos.html">Gallery</a>
+  </nav>
+
+  <div class="container">
+    <header class="card center">
+      <h1>Temples</h1>
+      <p>Search or filter by region.</p>
+    </header>
+
+    <section class="card">
+      <label for="search">Search</label>
+      <input id="search" class="input" placeholder="e.g., Manti, Provo, Lima" />
+      <label for="region">Region</label>
+      <select id="region" class="input">
+        <option value="">All Regions</option>
+        <option value="North America">North America</option>
+        <option value="South America">South America</option>
+        <option value="Europe">Europe</option>
+        <option value="Africa">Africa</option>
+        <option value="Asia">Asia</option>
+        <option value="Oceania">Oceania</option>
+      </select>
+    </section>
+
+    <section id="temple-list" class="grid" aria-live="polite"></section>
+
+    <footer class="footer">
+      <p>Created by LovingSmiles • My Life Compass Solutions</p>
+    </footer>
+  </div>
+</body>
+</html>

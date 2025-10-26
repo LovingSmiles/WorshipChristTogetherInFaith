@@ -4,47 +4,95 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Temples • Temple Fellowship Network</title>
-  <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="css/patriotic.css" />
-  <script defer src="js/temple-data.js"></script>
-  <script defer>
-    document.addEventListener('DOMContentLoaded', () => {
-      const listEl = document.getElementById('temple-list');
-      const search = document.getElementById('search');
-      const region = document.getElementById('region');
+  <meta name="robots" content="noindex" />
 
-      function render(items){
-        listEl.innerHTML = '';
-        items.forEach(t => {
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.innerHTML = `
-            <h3>${t.name}</h3>
-            <p class="small">${t.city}, ${t.country} • Region: ${t.region}</p>
-          `;
-          listEl.appendChild(card);
-        });
-      }
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
-      let filtered = TEMPLE_DATA.slice();
-      render(filtered);
-
-      function applyFilter(){
-        const q = search.value.trim().toLowerCase();
-        const r = region.value;
-        filtered = TEMPLE_DATA.filter(t => {
-          const matchQ = !q || (t.name.toLowerCase().includes(q) || t.city.toLowerCase().includes(q) || t.country.toLowerCase().includes(q));
-          const matchR = !r || t.region === r;
-          return matchQ && matchR;
-        });
-        render(filtered);
-      }
-
-      search.addEventListener('input', applyFilter);
-      region.addEventListener('change', applyFilter);
-    });
-  </script>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(to bottom, #b22222, #ffffff, #002868);
+      margin: 0;
+      padding: 0;
+      color: #000;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    nav {
+      background: linear-gradient(to right, #b22222, #ffffff, #002868);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 10px;
+      border-bottom: 4px solid #fff;
+    }
+    nav a {
+      background: #fff;
+      color: #000;
+      font-weight: bold;
+      text-decoration: none;
+      border: 1px solid #000;
+      border-radius: 6px;
+      margin: 6px;
+      padding: 8px 14px;
+      transition: 0.2s;
+    }
+    nav a:hover, nav a.active { background: #b22222; color: #fff; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; width: 100%; }
+    .card {
+      background: rgba(255,255,255,0.9);
+      border: 2px solid #000;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+    }
+    .center { text-align: center; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 15px;
+    }
+    .input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0 14px;
+      border: 1px solid #000;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+    #map {
+      width: 100%;
+      height: 520px;
+      border-radius: 10px;
+      border: 2px solid #000;
+      margin-top: 10px;
+    }
+    .footer {
+      text-align: center;
+      padding: 16px;
+      background: rgba(255,255,255,0.9);
+      border-top: 4px solid #000;
+      margin-top: auto;
+      font-size: 14px;
+    }
+    button.log-btn {
+      background: #000;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: 0.2s;
+    }
+    button.log-btn:hover { background: #b22222; }
+  </style>
 </head>
+
 <body>
   <nav>
     <a href="index.html">Home</a>
@@ -52,27 +100,40 @@
     <a href="trips.html">Trips</a>
     <a href="join-trip.html">Start a Trip</a>
     <a href="photos.html">Gallery</a>
+    <a href="news.html">Temple Visits</a>
   </nav>
 
   <div class="container">
     <header class="card center">
       <h1>Temples</h1>
-      <p>Search or filter by region.</p>
+      <p>Search or filter by region, country, and state. Explore on the map and log your temple visits.</p>
     </header>
 
     <section class="card">
       <label for="search">Search</label>
-      <input id="search" class="input" placeholder="e.g., Manti, Provo, Lima" />
+      <input id="search" class="input" placeholder="e.g., Manti, Provo, Lima, Rome..." />
+
       <label for="region">Region</label>
       <select id="region" class="input">
         <option value="">All Regions</option>
-        <option value="North America">North America</option>
-        <option value="South America">South America</option>
-        <option value="Europe">Europe</option>
-        <option value="Africa">Africa</option>
-        <option value="Asia">Asia</option>
-        <option value="Oceania">Oceania</option>
       </select>
+
+      <label for="country">Country</label>
+      <select id="country" class="input">
+        <option value="">All Countries</option>
+      </select>
+
+      <label for="state" id="state-label" style="display:none;">State (USA only)</label>
+      <select id="state" class="input" style="display:none;">
+        <option value="">All States</option>
+      </select>
+    </section>
+
+    <section class="card center">
+      <h2>Temple Map</h2>
+      <p>Click any marker for details or to log a visit.</p>
+      <div id="map"></div>
+      <p style="margin-top:10px;">Total Visits Logged: <strong id="total-visits">0</strong></p>
     </section>
 
     <section id="temple-list" class="grid" aria-live="polite"></section>
@@ -81,5 +142,416 @@
       <p>Created by LovingSmiles • My Life Compass Solutions</p>
     </footer>
   </div>
+
+  <script>
+    /********************
+     * Global Temple Data (short sample, add full list here)
+     ********************/
+    const TEMPLE_DATA = [
+    { name: "Salt Lake Temple", city: "Salt Lake City", state: "Utah", country: "USA", region: "North America", status: "🔴 Closed for Renovation", lat: 40.7707, lng: -111.8910, slug: "salt-lake-temple" },
+      { name: "Provo Utah Temple", city: "Provo", state: "Utah", country: "USA", region: "North America", status: "🔴 Closed for Renovation", lat: 40.2476, lng: -111.6492, slug: "provo-utah-temple" },
+      { name: "Provo City Center Temple", city: "Provo", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 40.2337, lng: -111.6593, slug: "provo-city-center-temple" },
+      { name: "Ogden Utah Temple", city: "Ogden", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 41.2230, lng: -111.9738, slug: "ogden-utah-temple" },
+      { name: "Bountiful Utah Temple", city: "Bountiful", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 40.8850, lng: -111.8736, slug: "bountiful-utah-temple" },
+      { name: "Manti Utah Temple", city: "Manti", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.2674, lng: -111.6364, slug: "manti-utah-temple" },
+      { name: "Vernal Utah Temple", city: "Vernal", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 40.4550, lng: -109.5289, slug: "vernal-utah-temple" },
+      { name: "Monticello Utah Temple", city: "Monticello", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 37.8717, lng: -109.3426, slug: "monticello-utah-temple" },
+      { name: "St. George Utah Temple", city: "St. George", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 37.1051, lng: -113.5839, slug: "st-george-utah-temple" },
+      { name: "Cedar City Utah Temple", city: "Cedar City", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 37.6563, lng: -113.0928, slug: "cedar-city-utah-temple" },
+      { name: "Orem Utah Temple", city: "Orem", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 40.2955, lng: -111.7011, slug: "orem-utah-temple" },
+      { name: "Saratoga Springs Utah Temple", city: "Saratoga Springs", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 40.3496, lng: -111.9144, slug: "saratoga-springs-utah-temple" },
+      { name: "Ephraim Utah Temple", city: "Ephraim", state: "Utah", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 39.3590, lng: -111.5860, slug: "ephraim-utah-temple" },
+      { name: "Red Cliffs Utah Temple", city: "St. George", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 37.1066, lng: -113.5266, slug: "red-cliffs-utah-temple" },
+      { name: "Logan Utah Temple", city: "Logan", state: "Utah", country: "USA", region: "North America", status: "🟢 Operating", lat: 41.7369, lng: -111.8337, slug: "logan-utah-temple" },
+      { name: "Taylorsville Utah Temple", city: "Taylorsville", state: "Utah", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 40.6565, lng: -111.9397, slug: "taylorsville-utah-temple" },
+      { name: "Layton Utah Temple", city: "Layton", state: "Utah", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 41.0735, lng: -111.9708, slug: "layton-utah-temple" },
+      { name: "Smithfield Utah Temple", city: "Smithfield", state: "Utah", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 41.8389, lng: -111.8320, slug: "smithfield-utah-temple" },
+      { name: "Deseret Peak Utah Temple", city: "Tooele", state: "Utah", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 40.5220, lng: -112.2970, slug: "deseret-peak-utah-temple" },
+      { name: "Lindon Utah Temple", city: "Lindon", state: "Utah", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 40.3412, lng: -111.7179, slug: "lindon-utah-temple" },
+      { name: "Heber Valley Utah Temple", city: "Heber City", state: "Utah", country: "USA", region: "North America", status: "🔵 Announced", lat: 40.5065, lng: -111.4135, slug: "heber-valley-utah-temple" },
+      { name: "Roosevelt Utah Temple", city: "Roosevelt", state: "Utah", country: "USA", region: "North America", status: "🔵 Announced", lat: 40.3000, lng: -109.9800, slug: "roosevelt-utah-temple" },
+      { name: "Lehi Utah Temple", city: "Lehi", state: "Utah", country: "USA", region: "North America", status: "🔵 Announced", lat: 40.3994, lng: -111.8508, slug: "lehi-utah-temple" },
+      { name: "West Jordan Utah Temple", city: "West Jordan", state: "Utah", country: "USA", region: "North America", status: "🔵 Announced", lat: 40.6097, lng: -111.9391, slug: "west-jordan-utah-temple" },
+      { name: "Herriman Utah Temple", city: "Herriman", state: "Utah", country: "USA", region: "North America", status: "🔵 Announced", lat: 40.5146, lng: -112.0325, slug: "herriman-utah-temple" },
+
+      { name: "Pocatello Idaho Temple", city: "Pocatello", state: "Idaho", country: "USA", region: "North America", status: "🟢 Operating", lat: 42.8683, lng: -112.4455, slug: "pocatello-idaho-temple" },
+      { name: "Rexburg Idaho Temple", city: "Rexburg", state: "Idaho", country: "USA", region: "North America", status: "🟢 Operating", lat: 43.8230, lng: -111.7896, slug: "rexburg-idaho-temple" },
+      { name: "Rexburg North Idaho Temple", city: "Rexburg", state: "Idaho", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 43.8390, lng: -111.7800, slug: "rexburg-north-idaho-temple" },
+      { name: "Burley Idaho Temple", city: "Burley", state: "Idaho", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 42.5433, lng: -113.7931, slug: "burley-idaho-temple" },
+      { name: "Twin Falls Idaho Temple", city: "Twin Falls", state: "Idaho", country: "USA", region: "North America", status: "🟢 Operating", lat: 42.5625, lng: -114.4609, slug: "twin-falls-idaho-temple" },
+      { name: "Boise Idaho Temple", city: "Boise", state: "Idaho", country: "USA", region: "North America", status: "🟢 Operating", lat: 43.6127, lng: -116.3540, slug: "boise-idaho-temple" },
+
+      { name: "Phoenix Arizona Temple", city: "Phoenix", state: "Arizona", country: "USA", region: "North America", status: "🟢 Operating", lat: 33.7298, lng: -112.0836, slug: "phoenix-arizona-temple" },
+      { name: "Gilbert Arizona Temple", city: "Gilbert", state: "Arizona", country: "USA", region: "North America", status: "🟢 Operating", lat: 33.3306, lng: -111.7337, slug: "gilbert-arizona-temple" },
+      { name: "Mesa Arizona Temple", city: "Mesa", state: "Arizona", country: "USA", region: "North America", status: "🟢 Operating", lat: 33.4155, lng: -111.8313, slug: "mesa-arizona-temple" },
+      { name: "Snowflake Arizona Temple", city: "Snowflake", state: "Arizona", country: "USA", region: "North America", status: "🟢 Operating", lat: 34.5142, lng: -110.0917, slug: "snowflake-arizona-temple" },
+      { name: "Gila Valley Arizona Temple", city: "Thatcher", state: "Arizona", country: "USA", region: "North America", status: "🟢 Operating", lat: 32.8136, lng: -109.7548, slug: "gila-valley-arizona-temple" },
+      { name: "Page Arizona Temple", city: "Page", state: "Arizona", country: "USA", region: "North America", status: "🔵 Announced", lat: 36.9147, lng: -111.4558, slug: "page-arizona-temple" },
+      { name: "Tucson Arizona Temple", city: "Tucson", state: "Arizona", country: "USA", region: "North America", status: "🟢 Operating", lat: 32.2673, lng: -111.0185, slug: "tucson-arizona-temple" },
+
+      { name: "Denver Colorado Temple", city: "Centennial", state: "Colorado", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.5858, lng: -104.9125, slug: "denver-colorado-temple" },
+      { name: "Fort Collins Colorado Temple", city: "Fort Collins", state: "Colorado", country: "USA", region: "North America", status: "🟢 Operating", lat: 40.5236, lng: -105.0406, slug: "fort-collins-colorado-temple" },
+      { name: "Grand Junction Colorado Temple", city: "Grand Junction", state: "Colorado", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 39.0840, lng: -108.5500, slug: "grand-junction-colorado-temple" },
+
+      { name: "Las Vegas Nevada Temple", city: "Las Vegas", state: "Nevada", country: "USA", region: "North America", status: "🟢 Operating", lat: 36.1387, lng: -115.0481, slug: "las-vegas-nevada-temple" },
+      { name: "Reno Nevada Temple", city: "Reno", state: "Nevada", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.4789, lng: -119.7896, slug: "reno-nevada-temple" },
+      { name: "Elko Nevada Temple", city: "Elko", state: "Nevada", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 40.8389, lng: -115.7631, slug: "elko-nevada-temple" },
+
+      { name: "Los Angeles California Temple", city: "Los Angeles", state: "California", country: "USA", region: "North America", status: "🟢 Operating", lat: 34.0533, lng: -118.4193, slug: "los-angeles-california-temple" },
+      { name: "San Diego California Temple", city: "San Diego", state: "California", country: "USA", region: "North America", status: "🟢 Operating", lat: 32.8669, lng: -117.2119, slug: "san-diego-california-temple" },
+      { name: "Oakland California Temple", city: "Oakland", state: "California", country: "USA", region: "North America", status: "🟢 Operating", lat: 37.8020, lng: -122.2090, slug: "oakland-california-temple" },
+      { name: "Feather River California Temple", city: "Yuba City", state: "California", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.1413, lng: -121.6154, slug: "feather-river-california-temple" },
+      { name: "Bakersfield California Temple", city: "Bakersfield", state: "California", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 35.3733, lng: -119.0187, slug: "bakersfield-california-temple" },
+
+      /* International examples */
+      { name: "Rome Italy Temple", city: "Rome", country: "Italy", region: "Europe", status: "🟢 Operating", lat: 41.9510, lng: 12.6100, slug: "rome-italy-temple" },
+      { name: "Paris France Temple", city: "Le Chesnay", country: "France", region: "Europe", status: "🟢 Operating", lat: 48.8250, lng: 2.1160, slug: "paris-france-temple" },
+      { name: "Lisbon Portugal Temple", city: "Lisbon", country: "Portugal", region: "Europe", status: "🟢 Operating", lat: 38.7440, lng: -9.1560, slug: "lisbon-portugal-temple" },
+      { name: "Accra Ghana Temple", city: "Accra", country: "Ghana", region: "Africa", status: "🟢 Operating", lat: 5.6070, lng: -0.1860, slug: "accra-ghana-temple" },
+      { name: "Johannesburg South Africa Temple", city: "Johannesburg", country: "South Africa", region: "Africa", status: "🟢 Operating", lat: -26.2040, lng: 28.0470, slug: "johannesburg-south-africa-temple" },
+      { name: "Bangkok Thailand Temple", city: "Bangkok", country: "Thailand", region: "Asia", status: "🟢 Operating", lat: 13.7240, lng: 100.5340, slug: "bangkok-thailand-temple" },
+      { name: "Tokyo Japan Temple", city: "Tokyo", country: "Japan", region: "Asia", status: "🟢 Operating", lat: 35.6620, lng: 139.7370, slug: "tokyo-japan-temple" },
+      { name: "Manila Philippines Temple", city: "Quezon City", country: "Philippines", region: "Asia", status: "🟢 Operating", lat: 14.6510, lng: 121.0530, slug: "manila-philippines-temple" },
+      { name: "São Paulo Brazil Temple", city: "São Paulo", country: "Brazil", region: "South America", status: "🟢 Operating", lat: -23.5480, lng: -46.6390, slug: "sao-paulo-brazil-temple" },
+      { name: "Buenos Aires Argentina Temple", city: "Buenos Aires", country: "Argentina", region: "South America", status: "🟢 Operating", lat: -34.6080, lng: -58.3730, slug: "buenos-aires-argentina-temple" },
+      { name: "Anchorage Alaska Temple", city: "Anchorage", country: "USA", region: "North America", status: "🟢 Operating", lat: 61.1919, lng: -149.7621, slug: "anchorage-alaska-temple" },
+{ name: "Fairbanks Alaska Temple", city: "Fairbanks", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 64.8378, lng: -147.7164, slug: "fairbanks-alaska-temple" },
+{ name: "Helena Montana Temple", city: "Helena", country: "USA", region: "North America", status: "🟢 Operating", lat: 46.5927, lng: -112.0361, slug: "helena-montana-temple" },
+{ name: "Missoula Montana Temple", city: "Missoula", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 46.8721, lng: -113.9940, slug: "missoula-montana-temple" },
+{ name: "Billings Montana Temple", city: "Billings", country: "USA", region: "North America", status: "🟢 Operating", lat: 45.7833, lng: -108.5007, slug: "billings-montana-temple" },
+{ name: "Casper Wyoming Temple", city: "Casper", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 42.8666, lng: -106.3131, slug: "casper-wyoming-temple" },
+{ name: "Cody Wyoming Temple", city: "Cody", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 44.5263, lng: -109.0565, slug: "cody-wyoming-temple" },
+{ name: "Cheyenne Wyoming Temple", city: "Cheyenne", country: "USA", region: "North America", status: "🔵 Announced", lat: 41.13998, lng: -104.8202, slug: "cheyenne-wyoming-temple" },
+{ name: "Rapid City South Dakota Temple", city: "Rapid City", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 44.0805, lng: -103.2310, slug: "rapid-city-south-dakota-temple" },
+{ name: "Sioux Falls South Dakota Temple", city: "Sioux Falls", country: "USA", region: "North America", status: "🟢 Operating", lat: 43.5460, lng: -96.7313, slug: "sioux-falls-south-dakota-temple" },
+{ name: "Kansas City Missouri Temple", city: "Kansas City", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.0997, lng: -94.5786, slug: "kansas-city-missouri-temple" },
+{ name: "St. Louis Missouri Temple", city: "St. Louis", country: "USA", region: "North America", status: "🟢 Operating", lat: 38.6270, lng: -90.1994, slug: "st-louis-missouri-temple" },
+{ name: "Springfield Missouri Temple", city: "Springfield", country: "USA", region: "North America", status: "🔵 Announced", lat: 37.2089, lng: -93.2923, slug: "springfield-missouri-temple" },
+{ name: "Wichita Kansas Temple", city: "Wichita", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 37.6872, lng: -97.3301, slug: "wichita-kansas-temple" },
+{ name: "Omaha Nebraska Temple", city: "Omaha", country: "USA", region: "North America", status: "🟢 Operating", lat: 41.2565, lng: -95.9345, slug: "omaha-nebraska-temple" },
+{ name: "Des Moines Iowa Temple", city: "Des Moines", country: "USA", region: "North America", status: "🔵 Announced", lat: 41.5868, lng: -93.6250, slug: "des-moines-iowa-temple" },
+{ name: "Council Bluffs Iowa Temple", city: "Council Bluffs", country: "USA", region: "North America", status: "🔵 Announced", lat: 41.2619, lng: -95.8608, slug: "council-bluffs-iowa-temple" },
+{ name: "Lincoln Nebraska Temple", city: "Lincoln", country: "USA", region: "North America", status: "🔵 Announced", lat: 40.8136, lng: -96.7026, slug: "lincoln-nebraska-temple" },
+{ name: "Minneapolis Minnesota Temple", city: "Oakdale", country: "USA", region: "North America", status: "🟢 Operating", lat: 44.9635, lng: -93.2678, slug: "minneapolis-minnesota-temple" },
+{ name: "St. Paul Minnesota Temple", city: "St. Paul", country: "USA", region: "North America", status: "🔵 Announced", lat: 44.9537, lng: -93.0900, slug: "st-paul-minnesota-temple" },
+{ name: "Chicago Illinois Temple", city: "Glenview", country: "USA", region: "North America", status: "🟢 Operating", lat: 42.0926, lng: -87.8069, slug: "chicago-illinois-temple" },
+{ name: "Peoria Illinois Temple", city: "Peoria", country: "USA", region: "North America", status: "🔵 Announced", lat: 40.6936, lng: -89.5890, slug: "peoria-illinois-temple" },
+{ name: "Indianapolis Indiana Temple", city: "Carmel", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.9784, lng: -86.1180, slug: "indianapolis-indiana-temple" },
+{ name: "Cleveland Ohio Temple", city: "Cleveland", country: "USA", region: "North America", status: "🔵 Announced", lat: 41.4993, lng: -81.6944, slug: "cleveland-ohio-temple" },
+{ name: "Columbus Ohio Temple", city: "Columbus", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.9612, lng: -82.9988, slug: "columbus-ohio-temple" },
+{ name: "Cincinnati Ohio Temple", city: "Cincinnati", country: "USA", region: "North America", status: "🔵 Announced", lat: 39.1031, lng: -84.5120, slug: "cincinnati-ohio-temple" },
+{ name: "Detroit Michigan Temple", city: "Bloomfield Hills", country: "USA", region: "North America", status: "🟢 Operating", lat: 42.5836, lng: -83.2455, slug: "detroit-michigan-temple" },
+{ name: "Grand Rapids Michigan Temple", city: "Grand Rapids", country: "USA", region: "North America", status: "🔵 Announced", lat: 42.9634, lng: -85.6681, slug: "grand-rapids-michigan-temple" },
+{ name: "Lansing Michigan Temple", city: "Lansing", country: "USA", region: "North America", status: "🔵 Announced", lat: 42.7325, lng: -84.5555, slug: "lansing-michigan-temple" }
+{ name: "Philadelphia Pennsylvania Temple", city: "Philadelphia", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.9526, lng: -75.1652, slug: "philadelphia-pennsylvania-temple" },
+{ name: "Pittsburgh Pennsylvania Temple", city: "Pittsburgh", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 40.4406, lng: -79.9959, slug: "pittsburgh-pennsylvania-temple" },
+{ name: "Harrisburg Pennsylvania Temple", city: "Harrisburg", country: "USA", region: "North America", status: "🔵 Announced", lat: 40.2732, lng: -76.8867, slug: "harrisburg-pennsylvania-temple" },
+{ name: "Washington D.C. Temple", city: "Kensington", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.0021, lng: -77.0725, slug: "washington-dc-temple" },
+{ name: "Richmond Virginia Temple", city: "Glen Allen", country: "USA", region: "North America", status: "🟢 Operating", lat: 37.6655, lng: -77.5064, slug: "richmond-virginia-temple" },
+{ name: "Roanoke Virginia Temple", city: "Roanoke", country: "USA", region: "North America", status: "🔵 Announced", lat: 37.2709, lng: -79.9414, slug: "roanoke-virginia-temple" },
+{ name: "Raleigh North Carolina Temple", city: "Apex", country: "USA", region: "North America", status: "🟢 Operating", lat: 35.7327, lng: -78.8503, slug: "raleigh-north-carolina-temple" },
+{ name: "Charlotte North Carolina Temple", city: "Charlotte", country: "USA", region: "North America", status: "🔵 Announced", lat: 35.2271, lng: -80.8431, slug: "charlotte-north-carolina-temple" },
+{ name: "Columbia South Carolina Temple", city: "Hopkins", country: "USA", region: "North America", status: "🟢 Operating", lat: 33.9287, lng: -80.8966, slug: "columbia-south-carolina-temple" },
+{ name: "Atlanta Georgia Temple", city: "Sandy Springs", country: "USA", region: "North America", status: "🟢 Operating", lat: 33.9406, lng: -84.3557, slug: "atlanta-georgia-temple" },
+{ name: "Tallahassee Florida Temple", city: "Tallahassee", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 30.4383, lng: -84.2807, slug: "tallahassee-florida-temple" },
+{ name: "Orlando Florida Temple", city: "Windermere", country: "USA", region: "North America", status: "🟢 Operating", lat: 28.4731, lng: -81.5385, slug: "orlando-florida-temple" },
+{ name: "Fort Lauderdale Florida Temple", city: "Davie", country: "USA", region: "North America", status: "🟢 Operating", lat: 26.1208, lng: -80.1319, slug: "fort-lauderdale-florida-temple" },
+{ name: "Jacksonville Florida Temple", city: "Jacksonville", country: "USA", region: "North America", status: "🔵 Announced", lat: 30.3322, lng: -81.6557, slug: "jacksonville-florida-temple" },
+{ name: "Birmingham Alabama Temple", city: "Gardendale", country: "USA", region: "North America", status: "🟢 Operating", lat: 33.6354, lng: -86.8129, slug: "birmingham-alabama-temple" },
+{ name: "Montgomery Alabama Temple", city: "Montgomery", country: "USA", region: "North America", status: "🔵 Announced", lat: 32.3792, lng: -86.3077, slug: "montgomery-alabama-temple" },
+{ name: "Nashville Tennessee Temple", city: "Franklin", country: "USA", region: "North America", status: "🟢 Operating", lat: 35.9243, lng: -86.8689, slug: "nashville-tennessee-temple" },
+{ name: "Knoxville Tennessee Temple", city: "Knoxville", country: "USA", region: "North America", status: "🔵 Announced", lat: 35.9606, lng: -83.9207, slug: "knoxville-tennessee-temple" },
+{ name: "Memphis Tennessee Temple", city: "Memphis", country: "USA", region: "North America", status: "🟢 Operating", lat: 35.1495, lng: -90.0490, slug: "memphis-tennessee-temple" },
+{ name: "Louisville Kentucky Temple", city: "Crestwood", country: "USA", region: "North America", status: "🟢 Operating", lat: 38.3248, lng: -85.4727, slug: "louisville-kentucky-temple" },
+{ name: "Lexington Kentucky Temple", city: "Lexington", country: "USA", region: "North America", status: "🔵 Announced", lat: 38.0406, lng: -84.5037, slug: "lexington-kentucky-temple" },
+{ name: "Baton Rouge Louisiana Temple", city: "Baton Rouge", country: "USA", region: "North America", status: "🟢 Operating", lat: 30.4515, lng: -91.1871, slug: "baton-rouge-louisiana-temple" },
+{ name: "New Orleans Louisiana Temple", city: "New Orleans", country: "USA", region: "North America", status: "🔵 Announced", lat: 29.9511, lng: -90.0715, slug: "new-orleans-louisiana-temple" },
+{ name: "Little Rock Arkansas Temple", city: "Little Rock", country: "USA", region: "North America", status: "🟢 Operating", lat: 34.7465, lng: -92.2896, slug: "little-rock-arkansas-temple" },
+{ name: "Longview Texas Temple", city: "Longview", country: "USA", region: "North America", status: "🔵 Announced", lat: 32.5007, lng: -94.7405, slug: "longview-texas-temple" },
+{ name: "Dallas Texas Temple", city: "Dallas", country: "USA", region: "North America", status: "🟢 Operating", lat: 32.7767, lng: -96.7970, slug: "dallas-texas-temple" },
+{ name: "Fort Worth Texas Temple", city: "Fort Worth", country: "USA", region: "North America", status: "🔵 Announced", lat: 32.7555, lng: -97.3308, slug: "fort-worth-texas-temple" },
+{ name: "Austin Texas Temple", city: "Austin", country: "USA", region: "North America", status: "🟡 Under Construction", lat: 30.2672, lng: -97.7431, slug: "austin-texas-temple" },
+{ name: "San Antonio Texas Temple", city: "San Antonio", country: "USA", region: "North America", status: "🟢 Operating", lat: 29.4241, lng: -98.4936, slug: "san-antonio-texas-temple" },
+{ name: "McAllen Texas Temple", city: "McAllen", country: "USA", region: "North America", status: "🟢 Operating", lat: 26.2034, lng: -98.2300, slug: "mcallen-texas-temple" },
+{ name: "Houston Texas Temple", city: "Klein", country: "USA", region: "North America", status: "🟢 Operating", lat: 30.0646, lng: -95.5207, slug: "houston-texas-temple" },
+{ name: "Lubbock Texas Temple", city: "Lubbock", country: "USA", region: "North America", status: "🟢 Operating", lat: 33.5779, lng: -101.8552, slug: "lubbock-texas-temple" },
+{ name: "Corpus Christi Texas Temple", city: "Corpus Christi", country: "USA", region: "North America", status: "🔵 Announced", lat: 27.8006, lng: -97.3964, slug: "corpus-christi-texas-temple" },
+{ name: "Kansas City Missouri Temple", city: "Kansas City", country: "USA", region: "North America", status: "🟢 Operating", lat: 39.0997, lng: -94.5786, slug: "kansas-city-missouri-temple" },
+
+/* Canada */
+{ name: "Toronto Ontario Temple", city: "Brampton", country: "Canada", region: "North America", status: "🟢 Operating", lat: 43.7315, lng: -79.7624, slug: "toronto-ontario-temple" },
+{ name: "Montreal Quebec Temple", city: "Longueuil", country: "Canada", region: "North America", status: "🟢 Operating", lat: 45.5330, lng: -73.5160, slug: "montreal-quebec-temple" },
+{ name: "Halifax Nova Scotia Temple", city: "Halifax", country: "Canada", region: "North America", status: "🟢 Operating", lat: 44.6488, lng: -63.5752, slug: "halifax-nova-scotia-temple" },
+{ name: "Winnipeg Manitoba Temple", city: "Winnipeg", country: "Canada", region: "North America", status: "🟢 Operating", lat: 49.8951, lng: -97.1384, slug: "winnipeg-manitoba-temple" },
+{ name: "Calgary Alberta Temple", city: "Calgary", country: "Canada", region: "North America", status: "🟢 Operating", lat: 51.0447, lng: -114.0719, slug: "calgary-alberta-temple" },
+{ name: "Edmonton Alberta Temple", city: "Edmonton", country: "Canada", region: "North America", status: "🟢 Operating", lat: 53.5461, lng: -113.4938, slug: "edmonton-alberta-temple" },
+{ name: "Vancouver British Columbia Temple", city: "Langley", country: "Canada", region: "North America", status: "🟢 Operating", lat: 49.1044, lng: -122.6604, slug: "vancouver-british-columbia-temple" },
+{ name: "Victoria British Columbia Temple", city: "Victoria", country: "Canada", region: "North America", status: "🔵 Announced", lat: 48.4284, lng: -123.3656, slug: "victoria-british-columbia-temple" },
+{ name: "Ottawa Ontario Temple", city: "Ottawa", country: "Canada", region: "North America", status: "🔵 Announced", lat: 45.4215, lng: -75.6996, slug: "ottawa-ontario-temple" }
+/* Mexico */
+{ name: "Mexico City Mexico Temple", city: "Mexico City", country: "Mexico", region: "Central America", status: "🟢 Operating", lat: 19.4326, lng: -99.1332, slug: "mexico-city-mexico-temple" },
+{ name: "Guadalajara Mexico Temple", city: "Guadalajara", country: "Mexico", region: "Central America", status: "🟢 Operating", lat: 20.6597, lng: -103.3496, slug: "guadalajara-mexico-temple" },
+{ name: "Monterrey Mexico Temple", city: "Monterrey", country: "Mexico", region: "Central America", status: "🟢 Operating", lat: 25.6866, lng: -100.3161, slug: "monterrey-mexico-temple" },
+{ name: "Mérida Mexico Temple", city: "Mérida", country: "Mexico", region: "Central America", status: "🟢 Operating", lat: 20.9674, lng: -89.5926, slug: "merida-mexico-temple" },
+{ name: "Tijuana Mexico Temple", city: "Tijuana", country: "Mexico", region: "Central America", status: "🟢 Operating", lat: 32.5149, lng: -117.0382, slug: "tijuana-mexico-temple" },
+{ name: "Puebla Mexico Temple", city: "Puebla", country: "Mexico", region: "Central America", status: "🟡 Under Construction", lat: 19.0413, lng: -98.2062, slug: "puebla-mexico-temple" },
+{ name: "Querétaro Mexico Temple", city: "Querétaro", country: "Mexico", region: "Central America", status: "🟡 Under Construction", lat: 20.5888, lng: -100.3899, slug: "queretaro-mexico-temple" },
+{ name: "Tula Mexico Temple", city: "Tula de Allende", country: "Mexico", region: "Central America", status: "🔵 Announced", lat: 20.0510, lng: -99.3417, slug: "tula-mexico-temple" },
+{ name: "Torreón Mexico Temple", city: "Torreón", country: "Mexico", region: "Central America", status: "🟡 Under Construction", lat: 25.5420, lng: -103.4068, slug: "torreon-mexico-temple" },
+{ name: "San Luis Potosí Mexico Temple", city: "San Luis Potosí", country: "Mexico", region: "Central America", status: "🔵 Announced", lat: 22.1565, lng: -100.9855, slug: "san-luis-potosi-mexico-temple" },
+{ name: "Cancún Mexico Temple", city: "Cancún", country: "Mexico", region: "Central America", status: "🔵 Announced", lat: 21.1619, lng: -86.8515, slug: "cancun-mexico-temple" },
+{ name: "Culiacán Mexico Temple", city: "Culiacán", country: "Mexico", region: "Central America", status: "🔵 Announced", lat: 24.8091, lng: -107.3940, slug: "culiacan-mexico-temple" },
+{ name: "Acapulco Mexico Temple", city: "Acapulco", country: "Mexico", region: "Central America", status: "🔵 Announced", lat: 16.8531, lng: -99.8237, slug: "acapulco-mexico-temple" },
+
+/* Central America */
+{ name: "Guatemala City Guatemala Temple", city: "Guatemala City", country: "Guatemala", region: "Central America", status: "🟢 Operating", lat: 14.6349, lng: -90.5069, slug: "guatemala-city-guatemala-temple" },
+{ name: "Cobán Guatemala Temple", city: "Cobán", country: "Guatemala", region: "Central America", status: "🟡 Under Construction", lat: 15.4694, lng: -90.3790, slug: "coban-guatemala-temple" },
+{ name: "Quetzaltenango Guatemala Temple", city: "Quetzaltenango", country: "Guatemala", region: "Central America", status: "🟢 Operating", lat: 14.8368, lng: -91.5186, slug: "quetzaltenango-guatemala-temple" },
+{ name: "Tegucigalpa Honduras Temple", city: "Tegucigalpa", country: "Honduras", region: "Central America", status: "🟢 Operating", lat: 14.0723, lng: -87.1921, slug: "tegucigalpa-honduras-temple" },
+{ name: "San Pedro Sula Honduras Temple", city: "San Pedro Sula", country: "Honduras", region: "Central America", status: "🟡 Under Construction", lat: 15.5042, lng: -88.0330, slug: "san-pedro-sula-honduras-temple" },
+{ name: "San Salvador El Salvador Temple", city: "San Salvador", country: "El Salvador", region: "Central America", status: "🟢 Operating", lat: 13.6929, lng: -89.2182, slug: "san-salvador-el-salvador-temple" },
+{ name: "Belize City Belize Temple", city: "Belize City", country: "Belize", region: "Central America", status: "🔵 Announced", lat: 17.5046, lng: -88.1962, slug: "belize-city-belize-temple" },
+{ name: "Managua Nicaragua Temple", city: "Managua", country: "Nicaragua", region: "Central America", status: "🟡 Under Construction", lat: 12.1364, lng: -86.2514, slug: "managua-nicaragua-temple" },
+{ name: "San José Costa Rica Temple", city: "San José", country: "Costa Rica", region: "Central America", status: "🟢 Operating", lat: 9.9281, lng: -84.0907, slug: "san-jose-costa-rica-temple" },
+{ name: "Panama City Panama Temple", city: "Panama City", country: "Panama", region: "Central America", status: "🟢 Operating", lat: 8.9833, lng: -79.5167, slug: "panama-city-panama-temple" },
+{ name: "David Panama Temple", city: "David", country: "Panama", region: "Central America", status: "🔵 Announced", lat: 8.4333, lng: -82.4333, slug: "david-panama-temple" },
+
+/* South America */
+{ name: "Bogotá Colombia Temple", city: "Bogotá", country: "Colombia", region: "South America", status: "🟢 Operating", lat: 4.7110, lng: -74.0721, slug: "bogota-colombia-temple" },
+{ name: "Cali Colombia Temple", city: "Cali", country: "Colombia", region: "South America", status: "🟡 Under Construction", lat: 3.4516, lng: -76.5319, slug: "cali-colombia-temple" },
+{ name: "Medellín Colombia Temple", city: "Medellín", country: "Colombia", region: "South America", status: "🔵 Announced", lat: 6.2442, lng: -75.5812, slug: "medellin-colombia-temple" },
+{ name: "Caracas Venezuela Temple", city: "Caracas", country: "Venezuela", region: "South America", status: "🟢 Operating", lat: 10.4806, lng: -66.9036, slug: "caracas-venezuela-temple" },
+{ name: "Maracaibo Venezuela Temple", city: "Maracaibo", country: "Venezuela", region: "South America", status: "🟡 Under Construction", lat: 10.6545, lng: -71.6530, slug: "maracaibo-venezuela-temple" },
+{ name: "Quito Ecuador Temple", city: "Quito", country: "Ecuador", region: "South America", status: "🟢 Operating", lat: -0.1807, lng: -78.4678, slug: "quito-ecuador-temple" },
+{ name: "Guayaquil Ecuador Temple", city: "Guayaquil", country: "Ecuador", region: "South America", status: "🟢 Operating", lat: -2.1709, lng: -79.9224, slug: "guayaquil-ecuador-temple" },
+{ name: "La Paz Bolivia Temple", city: "La Paz", country: "Bolivia", region: "South America", status: "🟡 Under Construction", lat: -16.5000, lng: -68.1193, slug: "la-paz-bolivia-temple" },
+{ name: "Santa Cruz Bolivia Temple", city: "Santa Cruz", country: "Bolivia", region: "South America", status: "🟡 Under Construction", lat: -17.7833, lng: -63.1821, slug: "santa-cruz-bolivia-temple" },
+{ name: "Asunción Paraguay Temple", city: "Asunción", country: "Paraguay", region: "South America", status: "🟢 Operating", lat: -25.2637, lng: -57.5759, slug: "asuncion-paraguay-temple" },
+{ name: "Lima Peru Temple", city: "Lima", country: "Peru", region: "South America", status: "🟢 Operating", lat: -12.0464, lng: -77.0428, slug: "lima-peru-temple" },
+{ name: "Lima Peru Los Olivos Temple", city: "Lima", country: "Peru", region: "South America", status: "🟢 Operating", lat: -12.0460, lng: -77.0580, slug: "lima-los-olivos-peru-temple" },
+{ name: "Arequipa Peru Temple", city: "Arequipa", country: "Peru", region: "South America", status: "🟢 Operating", lat: -16.4090, lng: -71.5375, slug: "arequipa-peru-temple" },
+{ name: "Cusco Peru Temple", city: "Cusco", country: "Peru", region: "South America", status: "🟡 Under Construction", lat: -13.5320, lng: -71.9675, slug: "cusco-peru-temple" },
+{ name: "Tarawa Kiribati Temple", city: "Tarawa", country: "Kiribati", region: "Oceania", status: "🔵 Announced", lat: 1.3290, lng: 172.9790, slug: "tarawa-kiribati-temple" }
+{ name: "London England Temple", city: "Newchapel", country: "United Kingdom", region: "Europe", status: "🟢 Operating", lat: 51.1611, lng: -0.0333, slug: "london-england-temple" },
+{ name: "Preston England Temple", city: "Chorley", country: "United Kingdom", region: "Europe", status: "🟢 Operating", lat: 53.6519, lng: -2.6306, slug: "preston-england-temple" },
+{ name: "Birmingham England Temple", city: "Birmingham", country: "United Kingdom", region: "Europe", status: "🔵 Announced", lat: 52.4862, lng: -1.8904, slug: "birmingham-england-temple" },
+{ name: "Manchester England Temple", city: "Manchester", country: "United Kingdom", region: "Europe", status: "🔵 Announced", lat: 53.4808, lng: -2.2426, slug: "manchester-england-temple" },
+{ name: "Glasgow Scotland Temple", city: "Glasgow", country: "United Kingdom", region: "Europe", status: "🔵 Announced", lat: 55.8642, lng: -4.2518, slug: "glasgow-scotland-temple" },
+{ name: "Dublin Ireland Temple", city: "Dublin", country: "Ireland", region: "Europe", status: "🔵 Announced", lat: 53.3498, lng: -6.2603, slug: "dublin-ireland-temple" },
+{ name: "Paris France Temple", city: "Le Chesnay", country: "France", region: "Europe", status: "🟢 Operating", lat: 48.8199, lng: 2.1163, slug: "paris-france-temple" },
+{ name: "Marseille France Temple", city: "Marseille", country: "France", region: "Europe", status: "🔵 Announced", lat: 43.2965, lng: 5.3698, slug: "marseille-france-temple" },
+{ name: "Madrid Spain Temple", city: "Madrid", country: "Spain", region: "Europe", status: "🟢 Operating", lat: 40.4168, lng: -3.7038, slug: "madrid-spain-temple" },
+{ name: "Barcelona Spain Temple", city: "Barcelona", country: "Spain", region: "Europe", status: "🔵 Announced", lat: 41.3851, lng: 2.1734, slug: "barcelona-spain-temple" },
+{ name: "Lisbon Portugal Temple", city: "Lisbon", country: "Portugal", region: "Europe", status: "🟢 Operating", lat: 38.7169, lng: -9.1399, slug: "lisbon-portugal-temple" },
+{ name: "Oslo Norway Temple", city: "Oslo", country: "Norway", region: "Europe", status: "🔵 Announced", lat: 59.9139, lng: 10.7522, slug: "oslo-norway-temple" },
+{ name: "Stockholm Sweden Temple", city: "Västerhaninge", country: "Sweden", region: "Europe", status: "🟢 Operating", lat: 59.1167, lng: 18.1000, slug: "stockholm-sweden-temple" },
+{ name: "Helsinki Finland Temple", city: "Espoo", country: "Finland", region: "Europe", status: "🟢 Operating", lat: 60.2055, lng: 24.6559, slug: "helsinki-finland-temple" },
+{ name: "Copenhagen Denmark Temple", city: "Frederiksberg", country: "Denmark", region: "Europe", status: "🟢 Operating", lat: 55.6761, lng: 12.5683, slug: "copenhagen-denmark-temple" },
+{ name: "Hamburg Germany Temple", city: "Hamburg", country: "Germany", region: "Europe", status: "🔵 Announced", lat: 53.5511, lng: 9.9937, slug: "hamburg-germany-temple" },
+{ name: "Berlin Germany Temple", city: "Freiberg", country: "Germany", region: "Europe", status: "🟢 Operating", lat: 50.9128, lng: 13.3399, slug: "berlin-germany-temple" },
+{ name: "Munich Germany Temple", city: "Munich", country: "Germany", region: "Europe", status: "🔵 Announced", lat: 48.1351, lng: 11.5820, slug: "munich-germany-temple" },
+{ name: "Vienna Austria Temple", city: "Vienna", country: "Austria", region: "Europe", status: "🟡 Under Construction", lat: 48.2082, lng: 16.3738, slug: "vienna-austria-temple" },
+{ name: "Zurich Switzerland Temple", city: "Zollikofen", country: "Switzerland", region: "Europe", status: "🟢 Operating", lat: 46.9861, lng: 7.4558, slug: "zurich-switzerland-temple" },
+{ name: "Rome Italy Temple", city: "Rome", country: "Italy", region: "Europe", status: "🟢 Operating", lat: 41.951, lng: 12.61, slug: "rome-italy-temple" },
+{ name: "Milan Italy Temple", city: "Milan", country: "Italy", region: "Europe", status: "🔵 Announced", lat: 45.4642, lng: 9.19, slug: "milan-italy-temple" },
+{ name: "Athens Greece Temple", city: "Athens", country: "Greece", region: "Europe", status: "🔵 Announced", lat: 37.9838, lng: 23.7275, slug: "athens-greece-temple" },
+{ name: "Warsaw Poland Temple", city: "Warsaw", country: "Poland", region: "Europe", status: "🔵 Announced", lat: 52.2297, lng: 21.0122, slug: "warsaw-poland-temple" },
+{ name: "Budapest Hungary Temple", city: "Budapest", country: "Hungary", region: "Europe", status: "🟡 Under Construction", lat: 47.4979, lng: 19.0402, slug: "budapest-hungary-temple" },
+{ name: "Prague Czech Republic Temple", city: "Prague", country: "Czech Republic", region: "Europe", status: "🔵 Announced", lat: 50.0755, lng: 14.4378, slug: "prague-czech-republic-temple" },
+{ name: "Kiev Ukraine Temple", city: "Kyiv", country: "Ukraine", region: "Europe", status: "🟢 Operating", lat: 50.4501, lng: 30.5234, slug: "kiev-ukraine-temple" },
+{ name: "Yerevan Armenia Temple", city: "Yerevan", country: "Armenia", region: "Europe", status: "🟡 Under Construction", lat: 40.1792, lng: 44.4991, slug: "yerevan-armenia-temple" },
+{ name: "Osijek Croatia Temple", city: "Osijek", country: "Croatia", region: "Europe", status: "🔵 Announced", lat: 45.5540, lng: 18.6955, slug: "osijek-croatia-temple" },
+{ name: "Oslo Norway Temple", city: "Oslo", country: "Norway", region: "Europe", status: "🔵 Announced", lat: 59.9139, lng: 10.7522, slug: "oslo-norway-temple" },
+{ name: "Brussels Belgium Temple", city: "Brussels", country: "Belgium", region: "Europe", status: "🔵 Announced", lat: 50.8503, lng: 4.3517, slug: "brussels-belgium-temple" },
+{ name: "Amsterdam Netherlands Temple", city: "Zoetermeer", country: "Netherlands", region: "Europe", status: "🟢 Operating", lat: 52.0607, lng: 4.4943, slug: "amsterdam-netherlands-temple" },
+{ name: "Luxembourg Temple", city: "Luxembourg City", country: "Luxembourg", region: "Europe", status: "🔵 Announced", lat: 49.6117, lng: 6.1319, slug: "luxembourg-temple" }  
+/* Africa */
+{ name: "Johannesburg South Africa Temple", city: "Johannesburg", country: "South Africa", region: "Africa", status: "🟢 Operating", lat: -26.2041, lng: 28.0473, slug: "johannesburg-south-africa-temple" },
+{ name: "Durban South Africa Temple", city: "Durban", country: "South Africa", region: "Africa", status: "🟢 Operating", lat: -29.8587, lng: 31.0218, slug: "durban-south-africa-temple" },
+{ name: "Cape Town South Africa Temple", city: "Cape Town", country: "South Africa", region: "Africa", status: "🟡 Under Construction", lat: -33.9249, lng: 18.4241, slug: "cape-town-south-africa-temple" },
+{ name: "Kinshasa Democratic Republic of the Congo Temple", city: "Kinshasa", country: "Democratic Republic of the Congo", region: "Africa", status: "🟢 Operating", lat: -4.4419, lng: 15.2663, slug: "kinshasa-drc-temple" },
+{ name: "Lubumbashi Democratic Republic of the Congo Temple", city: "Lubumbashi", country: "Democratic Republic of the Congo", region: "Africa", status: "🟡 Under Construction", lat: -11.6870, lng: 27.5026, slug: "lubumbashi-drc-temple" },
+{ name: "Mbuji-Mayi Democratic Republic of the Congo Temple", city: "Mbuji-Mayi", country: "Democratic Republic of the Congo", region: "Africa", status: "🔵 Announced", lat: -6.1360, lng: 23.5898, slug: "mbuji-mayi-drc-temple" },
+{ name: "Abidjan Ivory Coast Temple", city: "Abidjan", country: "Ivory Coast", region: "Africa", status: "🟡 Under Construction", lat: 5.35995, lng: -4.00826, slug: "abidjan-ivory-coast-temple" },
+{ name: "Lusaka Zambia Temple", city: "Lusaka", country: "Zambia", region: "Africa", status: "🟡 Under Construction", lat: -15.3875, lng: 28.3228, slug: "lusaka-zambia-temple" },
+{ name: "Harare Zimbabwe Temple", city: "Harare", country: "Zimbabwe", region: "Africa", status: "🟡 Under Construction", lat: -17.8252, lng: 31.0335, slug: "harare-zimbabwe-temple" },
+{ name: "Bulawayo Zimbabwe Temple", city: "Bulawayo", country: "Zimbabwe", region: "Africa", status: "🔵 Announced", lat: -20.1451, lng: 28.5873, slug: "bulawayo-zimbabwe-temple" },
+{ name: "Nairobi Kenya Temple", city: "Nairobi", country: "Kenya", region: "Africa", status: "🟡 Under Construction", lat: -1.2921, lng: 36.8219, slug: "nairobi-kenya-temple" },
+{ name: "Cape Coast Ghana Temple", city: "Cape Coast", country: "Ghana", region: "Africa", status: "🔵 Announced", lat: 5.1053, lng: -1.2466, slug: "cape-coast-ghana-temple" },
+{ name: "Accra Ghana Temple", city: "Accra", country: "Ghana", region: "Africa", status: "🟢 Operating", lat: 5.607, lng: -0.186, slug: "accra-ghana-temple" },
+{ name: "Benin City Nigeria Temple", city: "Benin City", country: "Nigeria", region: "Africa", status: "🟡 Under Construction", lat: 6.3373, lng: 5.6258, slug: "benin-city-nigeria-temple" },
+{ name: "Lagos Nigeria Temple", city: "Lagos", country: "Nigeria", region: "Africa", status: "🔵 Announced", lat: 6.5244, lng: 3.3792, slug: "lagos-nigeria-temple" },
+{ name: "Port Harcourt Nigeria Temple", city: "Port Harcourt", country: "Nigeria", region: "Africa", status: "🔵 Announced", lat: 4.8156, lng: 7.0498, slug: "port-harcourt-nigeria-temple" },
+{ name: "Yaoundé Cameroon Temple", city: "Yaoundé", country: "Cameroon", region: "Africa", status: "🔵 Announced", lat: 3.8480, lng: 11.5021, slug: "yaounde-cameroon-temple" },
+{ name: "Antananarivo Madagascar Temple", city: "Antananarivo", country: "Madagascar", region: "Africa", status: "🔵 Announced", lat: -18.8792, lng: 47.5079, slug: "antananarivo-madagascar-temple" },
+{ name: "Maputo Mozambique Temple", city: "Maputo", country: "Mozambique", region: "Africa", status: "🔵 Announced", lat: -25.9692, lng: 32.5732, slug: "maputo-mozambique-temple" },
+{ name: "Kampala Uganda Temple", city: "Kampala", country: "Uganda", region: "Africa", status: "🔵 Announced", lat: 0.3476, lng: 32.5825, slug: "kampala-uganda-temple" },
+{ name: "Luanda Angola Temple", city: "Luanda", country: "Angola", region: "Africa", status: "🔵 Announced", lat: -8.8383, lng: 13.2344, slug: "luanda-angola-temple" },
+{ name: "Monrovia Liberia Temple", city: "Monrovia", country: "Liberia", region: "Africa", status: "🟡 Under Construction", lat: 6.3005, lng: -10.7972, slug: "monrovia-liberia-temple" },
+{ name: "Freetown Sierra Leone Temple", city: "Freetown", country: "Sierra Leone", region: "Africa", status: "🟡 Under Construction", lat: 8.4657, lng: -13.2317, slug: "freetown-sierra-leone-temple" },
+{ name: "Abuja Nigeria Temple", city: "Abuja", country: "Nigeria", region: "Africa", status: "🟡 Under Construction", lat: 9.0579, lng: 7.4951, slug: "abuja-nigeria-temple" },
+{ name: "Douala Cameroon Temple", city: "Douala", country: "Cameroon", region: "Africa", status: "🔵 Announced", lat: 4.0511, lng: 9.7679, slug: "douala-cameroon-temple" },
+
+/* Middle East */
+{ name: "Dubai United Arab Emirates Temple", city: "Dubai", country: "United Arab Emirates", region: "Middle East", status: "🟡 Under Construction", lat: 25.276987, lng: 55.296249, slug: "dubai-united-arab-emirates-temple" },
+{ name: "Beirut Lebanon Temple", city: "Beirut", country: "Lebanon", region: "Middle East", status: "🔵 Announced", lat: 33.8938, lng: 35.5018, slug: "beirut-lebanon-temple" },
+{ name: "Jerusalem Temple", city: "Jerusalem", country: "Israel", region: "Middle East", status: "🔵 Announced", lat: 31.7683, lng: 35.2137, slug: "jerusalem-temple" },
+{ name: "Amman Jordan Temple", city: "Amman", country: "Jordan", region: "Middle East", status: "🔵 Announced", lat: 31.9454, lng: 35.9284, slug: "amman-jordan-temple" },
+{ name: "Bahrain Temple", city: "Manama", country: "Bahrain", region: "Middle East", status: "🔵 Announced", lat: 26.2235, lng: 50.5876, slug: "bahrain-temple" }   
+/* Asia */
+{ name: "Tokyo Japan Temple", city: "Tokyo", country: "Japan", region: "Asia", status: "🟢 Operating", lat: 35.662, lng: 139.737, slug: "tokyo-japan-temple" },
+{ name: "Osaka Japan Temple", city: "Osaka", country: "Japan", region: "Asia", status: "🟡 Under Construction", lat: 34.6937, lng: 135.5023, slug: "osaka-japan-temple" },
+{ name: "Sapporo Japan Temple", city: "Sapporo", country: "Japan", region: "Asia", status: "🟢 Operating", lat: 43.0618, lng: 141.3545, slug: "sapporo-japan-temple" },
+{ name: "Fukuoka Japan Temple", city: "Fukuoka", country: "Japan", region: "Asia", status: "🟢 Operating", lat: 33.5902, lng: 130.4017, slug: "fukuoka-japan-temple" },
+{ name: "Sendai Japan Temple", city: "Sendai", country: "Japan", region: "Asia", status: "🔵 Announced", lat: 38.2682, lng: 140.8694, slug: "sendai-japan-temple" },
+{ name: "Seoul Korea Temple", city: "Seoul", country: "South Korea", region: "Asia", status: "🟢 Operating", lat: 37.5665, lng: 126.978, slug: "seoul-korea-temple" },
+{ name: "Busan Korea Temple", city: "Busan", country: "South Korea", region: "Asia", status: "🟡 Under Construction", lat: 35.1796, lng: 129.0756, slug: "busan-korea-temple" },
+{ name: "Ulaanbaatar Mongolia Temple", city: "Ulaanbaatar", country: "Mongolia", region: "Asia", status: "🟡 Under Construction", lat: 47.9212, lng: 106.9186, slug: "ulaanbaatar-mongolia-temple" },
+{ name: "Taipei Taiwan Temple", city: "Taipei", country: "Taiwan", region: "Asia", status: "🟢 Operating", lat: 25.033, lng: 121.565, slug: "taipei-taiwan-temple" },
+{ name: "Hong Kong China Temple", city: "Hong Kong", country: "China", region: "Asia", status: "🟢 Operating", lat: 22.3193, lng: 114.1694, slug: "hong-kong-china-temple" },
+{ name: "Bangkok Thailand Temple", city: "Bangkok", country: "Thailand", region: "Asia", status: "🟢 Operating", lat: 13.7563, lng: 100.5018, slug: "bangkok-thailand-temple" },
+{ name: "Phnom Penh Cambodia Temple", city: "Phnom Penh", country: "Cambodia", region: "Asia", status: "🟡 Under Construction", lat: 11.5564, lng: 104.9282, slug: "phnom-penh-cambodia-temple" },
+{ name: "Hanoi Vietnam Temple", city: "Hanoi", country: "Vietnam", region: "Asia", status: "🟡 Under Construction", lat: 21.0278, lng: 105.8342, slug: "hanoi-vietnam-temple" },
+{ name: "Kolkata India Temple", city: "Kolkata", country: "India", region: "Asia", status: "🔵 Announced", lat: 22.5726, lng: 88.3639, slug: "kolkata-india-temple" },
+{ name: "Bengaluru India Temple", city: "Bengaluru", country: "India", region: "Asia", status: "🟡 Under Construction", lat: 12.9716, lng: 77.5946, slug: "bengaluru-india-temple" },
+{ name: "Dubai United Arab Emirates Temple", city: "Dubai", country: "United Arab Emirates", region: "Asia", status: "🟡 Under Construction", lat: 25.276987, lng: 55.296249, slug: "dubai-united-arab-emirates-temple" },
+{ name: "Almaty Kazakhstan Temple", city: "Almaty", country: "Kazakhstan", region: "Asia", status: "🔵 Announced", lat: 43.222, lng: 76.8512, slug: "almaty-kazakhstan-temple" },
+{ name: "Singapore Temple", city: "Singapore", country: "Singapore", region: "Asia", status: "🟡 Under Construction", lat: 1.3521, lng: 103.8198, slug: "singapore-temple" },
+{ name: "Jakarta Indonesia Temple", city: "Jakarta", country: "Indonesia", region: "Asia", status: "🟡 Under Construction", lat: -6.2088, lng: 106.8456, slug: "jakarta-indonesia-temple" },
+{ name: "Davao Philippines Temple", city: "Davao", country: "Philippines", region: "Asia", status: "🟡 Under Construction", lat: 7.1907, lng: 125.4553, slug: "davao-philippines-temple" },
+{ name: "Cebu City Philippines Temple", city: "Cebu", country: "Philippines", region: "Asia", status: "🟢 Operating", lat: 10.3157, lng: 123.8854, slug: "cebu-city-philippines-temple" },
+{ name: "Urdaneta Philippines Temple", city: "Urdaneta", country: "Philippines", region: "Asia", status: "🟡 Under Construction", lat: 15.9761, lng: 120.5717, slug: "urdaneta-philippines-temple" },
+{ name: "Naga Philippines Temple", city: "Naga", country: "Philippines", region: "Asia", status: "🔵 Announced", lat: 13.6218, lng: 123.1948, slug: "naga-philippines-temple" },
+{ name: "Bacolod Philippines Temple", city: "Bacolod", country: "Philippines", region: "Asia", status: "🟡 Under Construction", lat: 10.6763, lng: 122.9509, slug: "bacolod-philippines-temple" },
+{ name: "Iloilo Philippines Temple", city: "Iloilo", country: "Philippines", region: "Asia", status: "🟡 Under Construction", lat: 10.7202, lng: 122.5621, slug: "iloilo-philippines-temple" },
+{ name: "Tacloban Philippines Temple", city: "Tacloban", country: "Philippines", region: "Asia", status: "🔵 Announced", lat: 11.2444, lng: 125.0033, slug: "tacloban-philippines-temple" },
+{ name: "Lae Papua New Guinea Temple", city: "Lae", country: "Papua New Guinea", region: "Oceania", status: "🔵 Announced", lat: -6.7333, lng: 146.9833, slug: "lae-papua-new-guinea-temple" },
+
+/* Oceania */
+{ name: "Sydney Australia Temple", city: "Carlingford", country: "Australia", region: "Oceania", status: "🟢 Operating", lat: -33.782, lng: 151.061, slug: "sydney-australia-temple" },
+{ name: "Brisbane Australia Temple", city: "Brisbane", country: "Australia", region: "Oceania", status: "🟡 Under Construction", lat: -27.4698, lng: 153.0251, slug: "brisbane-australia-temple" },
+{ name: "Melbourne Australia Temple", city: "Melbourne", country: "Australia", region: "Oceania", status: "🟢 Operating", lat: -37.8136, lng: 144.9631, slug: "melbourne-australia-temple" },
+{ name: "Perth Australia Temple", city: "Perth", country: "Australia", region: "Oceania", status: "🟢 Operating", lat: -31.9505, lng: 115.8605, slug: "perth-australia-temple" },
+{ name: "Auckland New Zealand Temple", city: "Auckland", country: "New Zealand", region: "Oceania", status: "🟡 Under Construction", lat: -36.8485, lng: 174.7633, slug: "auckland-new-zealand-temple" },
+{ name: "Hamilton New Zealand Temple", city: "Hamilton", country: "New Zealand", region: "Oceania", status: "🟢 Operating", lat: -37.7833, lng: 175.2833, slug: "hamilton-new-zealand-temple" },
+{ name: "Pago Pago American Samoa Temple", city: "Pago Pago", country: "American Samoa", region: "Oceania", status: "🟡 Under Construction", lat: -14.2756, lng: -170.7046, slug: "pago-pago-american-samoa-temple" },
+{ name: "Apia Samoa Temple", city: "Apia", country: "Samoa", region: "Oceania", status: "🟢 Operating", lat: -13.8333, lng: -171.7667, slug: "apia-samoa-temple" },
+{ name: "Nukuʻalofa Tonga Temple", city: "Nukuʻalofa", country: "Tonga", region: "Oceania", status: "🟢 Operating", lat: -21.1333, lng: -175.2000, slug: "nuku-alofa-tonga-temple" },
+{ name: "Port Moresby Papua New Guinea Temple", city: "Port Moresby", country: "Papua New Guinea", region: "Oceania", status: "🟡 Under Construction", lat: -9.4438, lng: 147.1803, slug: "port-moresby-papua-new-guinea-temple" },
+{ name: "Suva Fiji Temple", city: "Suva", country: "Fiji", region: "Oceania", status: "🟢 Operating", lat: -18.1416, lng: 178.4422, slug: "suva-fiji-temple" },
+{ name: "Port Vila Vanuatu Temple", city: "Port Vila", country: "Vanuatu", region: "Oceania", status: "🔵 Announced", lat: -17.7333, lng: 168.3167, slug: "port-vila-vanuatu-temple" },
+{ name: "Tarawa Kiribati Temple", city: "Tarawa", country: "Kiribati", region: "Oceania", status: "🔵 Announced", lat: 1.3290, lng: 172.9790, slug: "tarawa-kiribati-temple" },
+{ name: "Papeete Tahiti Temple", city: "Papeete", country: "French Polynesia", region: "Oceania", status: "🟢 Operating", lat: -17.5516, lng: -149.5585, slug: "papeete-tahiti-temple" },
+{ name: "Port Moresby Papua New Guinea Temple", city: "Port Moresby", country: "Papua New Guinea", region: "Oceania", status: "🟡 Under Construction", lat: -9.4438, lng: 147.1803, slug: "port-moresby-png-temple" }
+     /********************
+     * Interactive Filters + Map + Visits
+     ********************/
+    document.addEventListener("DOMContentLoaded", () => {
+      const regionSel = document.getElementById("region");
+      const countrySel = document.getElementById("country");
+      const stateSel = document.getElementById("state");
+      const stateLabel = document.getElementById("state-label");
+      const listEl = document.getElementById("temple-list");
+      const search = document.getElementById("search");
+      const totalEl = document.getElementById("total-visits");
+
+      const regions = [...new Set(TEMPLE_DATA.map(t => t.region))].sort();
+      regions.forEach(r => regionSel.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
+
+      const map = L.map("map").setView([20,0],2);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
+
+      const visits = JSON.parse(localStorage.getItem("templeVisits") || "{}");
+      const markers = [];
+      let currentItems = [...TEMPLE_DATA];
+
+      function updateTotal(){
+        totalEl.textContent = Object.values(visits).reduce((a,b)=>a+b,0);
+      }
+      function saveVisits(){
+        localStorage.setItem("templeVisits", JSON.stringify(visits));
+        updateTotal();
+      }
+      function logVisit(slug, name){
+        if(!visits[slug]) visits[slug]=0;
+        visits[slug]++;
+        saveVisits();
+        alert(`✅ Visit logged for ${name}`);
+        render(currentItems);
+      }
+
+      function clearMarkers(){ markers.forEach(m => map.removeLayer(m)); markers.length=0; }
+      function addMarker(t){
+        if(typeof t.lat!=="number")return;
+        const marker=L.marker([t.lat,t.lng]).addTo(map).bindPopup(`
+          <b>${t.name}</b><br>${[t.city,t.state,t.country].filter(Boolean).join(", ")}<br>${t.status}<br>
+          <button class='log-btn' onclick="logVisit('${t.slug}','${t.name}')">Log Visit</button>
+        `);
+        markers.push(marker);
+      }
+
+      window.logVisit = logVisit;
+
+      function render(items){
+        clearMarkers();
+        listEl.innerHTML="";
+        items.forEach(t=>{
+          const vCount = visits[t.slug] || 0;
+          listEl.innerHTML += `
+            <div class="card">
+              <h3>${t.name}</h3>
+              <p>${[t.city,t.state,t.country].filter(Boolean).join(", ")}</p>
+              <p><strong>Status:</strong> ${t.status}</p>
+              <p><strong>Visits:</strong> ${vCount}</p>
+              <button class="log-btn" onclick="logVisit('${t.slug}','${t.name}')">Log Visit</button>
+            </div>`;
+          addMarker(t);
+        });
+      }
+
+      function applyFilter(){
+        const q = search.value.toLowerCase();
+        const r = regionSel.value;
+        const c = countrySel.value;
+        const s = stateSel.value;
+        currentItems = TEMPLE_DATA.filter(t=>{
+          const hay=[t.name,t.city,t.state,t.country].join(" ").toLowerCase();
+          const matchQ=!q||hay.includes(q);
+          const matchR=!r||t.region===r;
+          const matchC=!c||t.country===c;
+          const matchS=!s||t.state===s;
+          return matchQ&&matchR&&matchC&&matchS;
+        });
+        render(currentItems);
+      }
+
+      regionSel.addEventListener("change", ()=>{
+        const region = regionSel.value;
+        const countries = [...new Set(TEMPLE_DATA.filter(t=>!region||t.region===region).map(t=>t.country))].sort();
+        countrySel.innerHTML = `<option value="">All Countries</option>` + countries.map(c=>`<option>${c}</option>`).join("");
+        stateSel.style.display = stateLabel.style.display = "none";
+        applyFilter();
+      });
+
+      countrySel.addEventListener("change", ()=>{
+        if(countrySel.value==="USA"){
+          const states = [...new Set(TEMPLE_DATA.filter(t=>t.country==="USA").map(t=>t.state))].sort();
+          stateSel.innerHTML = `<option value="">All States</option>` + states.map(s=>`<option>${s}</option>`).join("");
+          stateSel.style.display = stateLabel.style.display = "block";
+        } else {
+          stateSel.style.display = stateLabel.style.display = "none";
+        }
+        applyFilter();
+      });
+
+      stateSel.addEventListener("change", applyFilter);
+      search.addEventListener("input", applyFilter);
+
+      render(currentItems);
+      updateTotal();
+    });
+  </script>
 </body>
 </html>
